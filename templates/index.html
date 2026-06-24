@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Front Desk — Cancellation Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #18233a;
+    --ink-soft: #2c3b5c;
+    --paper: #f6f3ec;
+    --paper-raised: #fffdf9;
+    --gold: #b8893f;
+    --gold-bright: #d6a85a;
+    --line: #d8d2c2;
+    --danger: #a3432f;
+    --safe: #3a6b52;
+    --shadow: rgba(24, 35, 58, 0.10);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Source Sans 3', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ledger-header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 28px 40px 24px;
+    border-bottom: 4px solid var(--gold);
+  }
+
+  .ledger-header .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    margin: 0 0 6px;
+  }
+
+  .ledger-header h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(26px, 3.2vw, 38px);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .ledger-header p {
+    margin: 8px 0 0;
+    color: #c7cfe0;
+    font-size: 14.5px;
+    max-width: 560px;
+  }
+
+  .stage {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 36px 40px 80px;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 28px;
+  }
+
+  @media (max-width: 920px) {
+    .stage { grid-template-columns: 1fr; padding: 24px 20px 60px; }
+    .ledger-header { padding: 22px 20px 20px; }
+  }
+
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    box-shadow: 0 1px 2px var(--shadow);
+  }
+
+  .card-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .card-head h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 17px;
+    margin: 0;
+  }
+
+  .card-head .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  /* ── FORM ── */
+  #booking-form { padding: 18px 20px 22px; }
+
+  .field { margin-bottom: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+    letter-spacing: 0.01em;
+  }
+
+  .field .hint {
+    font-size: 11px;
+    color: #8a8470;
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: #fff;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .field input:focus, .field select:focus {
+    outline: 2px solid var(--gold-bright);
+    outline-offset: -1px;
+    border-color: var(--gold);
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .divider {
+    border: none;
+    border-top: 1px dashed var(--line);
+    margin: 16px 0;
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    margin-top: 6px;
+  }
+  .submit-btn:hover { background: var(--ink-soft); }
+  .submit-btn:active { transform: translateY(1px); }
+
+  /* ── RESULT / GAUGE (signature element) ── */
+  .result-panel {
+    padding: 20px;
+    display: none;
+  }
+  .result-panel.show { display: block; }
+
+  .gauge-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto 8px;
+  }
+
+  .gauge-readout {
+    text-align: center;
+    margin-top: -56px;
+  }
+
+  .gauge-readout .pct {
+    font-family: 'Fraunces', serif;
+    font-size: 38px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .gauge-readout .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .verdict-strip {
+    margin-top: 14px;
+    padding: 9px 14px;
+    border-radius: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .verdict-strip.canceled { background: #f4e3de; color: var(--danger); }
+  .verdict-strip.kept { background: #e1ebe4; color: var(--safe); }
+
+  /* ── DASHBOARD GRID ── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 700px) { .dash-grid { grid-template-columns: 1fr; } }
+
+  .chart-box { padding: 16px 18px 18px; }
+  .chart-box canvas { max-height: 230px; }
+
+  .stat-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .stat-pill {
+    flex: 1;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    padding: 12px 16px;
+    border-radius: 2px;
+  }
+  .stat-pill .num {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .stat-pill .lbl {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+
+  .loading-msg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #8a8470;
+    padding: 30px 0;
+    text-align: center;
+  }
+
+  .error-msg {
+    color: var(--danger);
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 10px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="ledger-header">
+  <p class="eyebrow">Reservations — Risk Desk</p>
+  <h1>Cancellation Forecast</h1>
+  <p>Enter a booking's details to estimate cancellation risk before it happens, and review how the model behind it performs across the portfolio.</p>
+</div>
+
+<div class="stage">
+
+  <!-- LEFT: BOOKING FORM -->
+  <div class="card">
+    <div class="card-head">
+      <h2>New booking</h2>
+      <span class="tag" id="model-tag">—</span>
+    </div>
+    <form id="booking-form">
+      <div class="row-2">
+        <div class="field">
+          <label>Adults</label>
+          <input type="number" id="no_of_adults" value="2" min="0" required>
+        </div>
+        <div class="field">
+          <label>Children</label>
+          <input type="number" id="no_of_children" value="0" min="0" required>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Weekend nights</label>
+          <input type="number" id="no_of_weekend_nights" value="1" min="0" required>
+        </div>
+        <div class="field">
+          <label>Week nights</label>
+          <input type="number" id="no_of_week_nights" value="2" min="0" required>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Meal plan</label>
+        <select id="meal_plan_enc"></select>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Lead time <span class="hint">days before arrival</span></label>
+          <input type="number" id="lead_time" value="45" min="0" required>
+        </div>
+        <div class="field">
+          <label>Avg price / room</label>
+          <input type="number" id="avg_price_per_room" value="100" min="0" step="0.01" required>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Arrival year</label>
+          <input type="number" id="arrival_year" value="2018" required>
+        </div>
+        <div class="field">
+          <label>Arrival month</label>
+          <input type="number" id="arrival_month" value="6" min="1" max="12" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Arrival date <span class="hint">day of month</span></label>
+        <input type="number" id="arrival_date" value="15" min="1" max="31" required>
+      </div>
+
+      <hr class="divider">
+
+      <div class="row-2">
+        <div class="field">
+          <label>Car parking requested?</label>
+          <select id="required_car_parking_space">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Repeated guest?</label>
+          <select id="repeated_guest">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Prior cancellations</label>
+          <input type="number" id="no_of_previous_cancellations" value="0" min="0" required>
+        </div>
+        <div class="field">
+          <label>Prior bookings kept</label>
+          <input type="number" id="no_of_previous_bookings_not_canceled" value="0" min="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Special requests <span class="hint">count</span></label>
+        <input type="number" id="no_of_special_requests" value="0" min="0" required>
+      </div>
+
+      <button type="submit" class="submit-btn">Forecast this booking</button>
+      <p class="error-msg" id="error-msg"></p>
+    </form>
+
+    <div class="result-panel" id="result-panel">
+      <div class="gauge-wrap">
+        <canvas id="gauge-canvas" width="280" height="160"></canvas>
+        <div class="gauge-readout">
+          <div class="pct" id="gauge-pct">—</div>
+          <div class="label" id="gauge-label">cancel probability</div>
+        </div>
+      </div>
+      <div class="verdict-strip" id="verdict-strip"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: DASHBOARD -->
+  <div>
+    <div class="stat-row" id="stat-row">
+      <div class="loading-msg">Loading model metrics…</div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="card chart-box">
+        <div class="card-head" style="margin: -16px -18px 14px; padding: 14px 18px;">
+          <h2 style="font-size:15px;">Model accuracy</h2>
+        </div>
+        <canvas id="chart-accuracy"></canvas>
+      </div>
+
+      <div class="card chart-box">
+        <div class="card-head" style="margin: -16px -18px 14px; padding: 14px 18px;">
+          <h2 style="font-size:15px;">ROC curves</h2>
+        </div>
+        <canvas id="chart-roc"></canvas>
+      </div>
+
+      <div class="card chart-box" style="grid-column: 1 / -1;">
+        <div class="card-head" style="margin: -16px -18px 14px; padding: 14px 18px;">
+          <h2 style="font-size:15px;">Feature importance — best model</h2>
+        </div>
+        <canvas id="chart-importance" style="max-height: 320px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLORS = {
+  "XGBoost": "#185fa5",
+  "Random Forest": "#3a6b52",
+  "Gradient Boosting": "#b8893f",
+  "Logistic Regression": "#8a8470",
+};
+
+let mealPlanMap = {};
+
+function buildGauge(canvasId, pct) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h - 10, r = 110;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // background arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = "#e7e1d2";
+  ctx.stroke();
+
+  // value arc
+  const angle = Math.PI + (pct / 100) * Math.PI;
+  const grad = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
+  grad.addColorStop(0, "#3a6b52");
+  grad.addColorStop(0.5, "#b8893f");
+  grad.addColorStop(1, "#a3432f");
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, angle);
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = grad;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // needle
+  const needleLen = r - 6;
+  const nx = cx + needleLen * Math.cos(angle);
+  const ny = cy + needleLen * Math.sin(angle);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(nx, ny);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#18233a";
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+  ctx.fillStyle = "#18233a";
+  ctx.fill();
+}
+
+document.getElementById("booking-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("error-msg");
+  errEl.style.display = "none";
+
+  const payload = {};
+  ["no_of_adults","no_of_children","no_of_weekend_nights","no_of_week_nights",
+   "meal_plan_enc","required_car_parking_space","lead_time","arrival_year",
+   "arrival_month","arrival_date","repeated_guest","no_of_previous_cancellations",
+   "no_of_previous_bookings_not_canceled","avg_price_per_room","no_of_special_requests"
+  ].forEach(id => payload[id] = document.getElementById(id).value);
+
+  try {
+    const res = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Prediction failed");
+
+    const pct = data.cancel_probability * 100;
+    document.getElementById("result-panel").classList.add("show");
+    document.getElementById("gauge-pct").textContent = pct.toFixed(1) + "%";
+    buildGauge("gauge-canvas", pct);
+
+    const strip = document.getElementById("verdict-strip");
+    if (data.prediction === "Canceled") {
+      strip.className = "verdict-strip canceled";
+      strip.textContent = "Likely to cancel — flag for confirmation";
+    } else {
+      strip.className = "verdict-strip kept";
+      strip.textContent = "Likely to keep the booking";
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+});
+
+async function loadDashboard() {
+  const res = await fetch("/metrics");
+  const m = await res.json();
+
+  mealPlanMap = m.meal_plan_map;
+  const select = document.getElementById("meal_plan_enc");
+  select.innerHTML = Object.entries(mealPlanMap)
+    .map(([name, code]) => `<option value="${code}">${name}</option>`)
+    .join("");
+
+  document.getElementById("model-tag").textContent = m.best_model_name;
+
+  const names = Object.keys(m.models);
+  const bestAcc = m.models[m.best_model_name].accuracy * 100;
+  const bestAuc = m.models[m.best_model_name].auc;
+
+  document.getElementById("stat-row").innerHTML = `
+    <div class="stat-pill"><div class="num">${bestAcc.toFixed(1)}%</div><div class="lbl">Best accuracy · ${m.best_model_name}</div></div>
+    <div class="stat-pill"><div class="num">${bestAuc.toFixed(3)}</div><div class="lbl">ROC-AUC score</div></div>
+    <div class="stat-pill"><div class="num">${names.length}</div><div class="lbl">Models compared</div></div>
+  `;
+
+  // Accuracy bar chart
+  new Chart(document.getElementById("chart-accuracy"), {
+    type: "bar",
+    data: {
+      labels: names,
+      datasets: [{
+        data: names.map(n => (m.models[n].accuracy * 100).toFixed(2)),
+        backgroundColor: names.map(n => COLORS[n] || "#888"),
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      scales: { x: { min: 70, max: 90, title: { display: true, text: "Accuracy (%)" } } }
+    }
+  });
+
+  // ROC curves
+  new Chart(document.getElementById("chart-roc"), {
+    type: "line",
+    data: {
+      datasets: names.map(n => ({
+        label: `${n} (${m.models[n].auc.toFixed(3)})`,
+        data: m.models[n].roc_fpr.map((x, i) => ({ x, y: m.models[n].roc_tpr[i] })),
+        borderColor: COLORS[n] || "#888",
+        borderWidth: n === m.best_model_name ? 2.5 : 1.5,
+        pointRadius: 0,
+        tension: 0.1,
+      })).concat([{
+        label: "Random",
+        data: [{x:0,y:0},{x:1,y:1}],
+        borderColor: "#999",
+        borderDash: [4,4],
+        pointRadius: 0,
+      }])
+    },
+    options: {
+      scales: {
+        x: { type: "linear", min: 0, max: 1, title: { display: true, text: "False positive rate" } },
+        y: { min: 0, max: 1, title: { display: true, text: "True positive rate" } }
+      },
+      plugins: { legend: { position: "bottom", labels: { font: { size: 10 } } } }
+    }
+  });
+
+  // Feature importance
+  const fi = m.feature_importance.slice(0, 12);
+  new Chart(document.getElementById("chart-importance"), {
+    type: "bar",
+    data: {
+      labels: fi.map(f => f.feature),
+      datasets: [{
+        data: fi.map(f => f.importance),
+        backgroundColor: "#185fa5",
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      scales: { x: { title: { display: true, text: "Importance score" } } }
+    }
+  });
+}
+
+loadDashboard();
+</script>
+
+</body>
+</html>
