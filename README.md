@@ -1,4 +1,4 @@
-# hotel_booking_cancellation_prediction
+# hotel
 `create a virtual environment
 `download req
 `python train_model.py  
